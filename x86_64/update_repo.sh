@@ -1,3 +1,3 @@
-rm nyarch_repo*
+rm nyarch-repo*
 
-repo-add -n -R nyarch_repo.db.tar.gz *.pkg.tar.zst
+repo-add -n -R nyarch-repo.db.tar.gz *.pkg.tar.zst
