@@ -44,6 +44,15 @@ done
 
 cd "$SCRIPT_DIR"
 
+REPO_DB="$OUTPUT_DIR/repo.db.tar.gz"
+
 echo "Build process completed."
 echo "Built packages are available in: $OUTPUT_DIR"
-ls -lh "$OUTPUT_DIR"/*.pkg.tar.* 2>/dev/null || echo "No packages built."
+
+echo "Adding packages to repository..."
+if ls "$OUTPUT_DIR"/*.pkg.tar.* 1> /dev/null 2>&1; then
+	repo-add "$REPO_DB" "$OUTPUT_DIR"/*.pkg.tar.*
+	echo "✓ Repository database updated: $REPO_DB"
+else
+	echo "No packages to add to repository."
+fi

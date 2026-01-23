@@ -4,14 +4,15 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-AURPKGS_FILE="$REPO_ROOT/AURpkgs"
+AURPKGS_FILE="$REPO_ROOT/AURpkgs_full"
 REPO_DIR="$REPO_ROOT/x86_64"
 BUILD_DIR="$SCRIPT_DIR/build"
 
 mkdir -p "$BUILD_DIR"
 
 if [ ! -f "$AURPKGS_FILE" ]; then
-    echo "Error: AURpkgs file not found at $AURPKGS_FILE"
+    echo "Error: AURpkgs_full file not found at $AURPKGS_FILE"
+    echo "Please run the build process from the repo root to generate it"
     exit 1
 fi
 
