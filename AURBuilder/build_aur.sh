@@ -1,11 +1,12 @@
 #!/bin/bash
 
+set -e
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 AURPKGS_FILE="$REPO_ROOT/AURpkgs"
 REPO_DIR="$REPO_ROOT/x86_64"
 BUILD_DIR="$SCRIPT_DIR/build"
-UPDATE_SCRIPT="$REPO_DIR/update_repo.sh"
 
 mkdir -p "$BUILD_DIR"
 
@@ -59,11 +60,6 @@ while read -r pkg; do
     echo "Successfully built and added $pkg"
     echo
 done < "$AURPKGS_FILE"
-
-cd "$REPO_DIR" || exit 1
-
-echo "Updating repository database..."
-bash "$UPDATE_SCRIPT"
 
 echo "========================================="
 echo "All AUR packages built successfully!"
