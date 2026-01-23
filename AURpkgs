@@ -1,4 +1,24 @@
+# Aur packages
 yay-bin
+
+# Material you colros
 kde-material-you-colors
 python-pywal16
 python-materialyoucolor
+
+# Nyarch Assistant
+python-edge-tts
+python-expandvars
+python-gtts
+python-livepng
+python-lxml-html-clean
+python-hatch-fancy-pypi-readme
+python-newspaper4k
+python-openai
+python-pyaudio
+python-pylatexenc
+python-speechrecognition
+python-markdownify
+python-mcp
+python-ollama
+python-google-generativeai
