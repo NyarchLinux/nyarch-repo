@@ -9,7 +9,6 @@ depends=(
   "python-edge-tts"
   "python-requests"
   "python-expandvars"
-	"python-gtts"
   "python-beautifulsoup4"
   "python-gobject" 
 	"python-livepng"
@@ -17,13 +16,12 @@ depends=(
   "python-lxml"
   "python-hatch-fancy-pypi-readme"
   "python-hatchling"
-	"python-newspaper4k"
+	"python-newspaper"
 	"python-openai"
 	"python-pillow"
 	"python-pyaudio"
 	"python-pylatexenc"
   "python-tiktoken"
-	"python-speechrecognition"
   "python-matplotlib"
   "python-markdownify"
   "python-mcp"
@@ -36,6 +34,8 @@ optdepends=(
 	"python-ollama: Ollama support"
 	"ollama: Ollama auto serve"
 	"python-google-generativeai: Google Gemini support"
+  "python-speechrecognition: Speech recognition support"
+  "python-gtts: Google TTS"
 )
 
 makedepends=("git" "meson")
