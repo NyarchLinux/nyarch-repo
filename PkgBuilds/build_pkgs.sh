@@ -5,7 +5,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="$SCRIPT_DIR/output"
 
-mkdir -p "$OUTPUT_DIR"
+mkdir -p "$SCRIPT_DIR/../x86_64"
 
 echo "Starting package build process..."
 echo "Output directory: $OUTPUT_DIR"
@@ -30,7 +30,7 @@ for pkg_dir in "$SCRIPT_DIR"/*/; do
 	if makepkg -sf; then
 		pkg_files=("$pkg_name"*.pkg.tar.*)
 		if [[ -f "${pkg_files[0]}" ]]; then
-			mv "${pkg_files[@]}" "$OUTPUT_DIR/"
+			mv "${pkg_files[@]}" "$SCRIPT_DIR/../x86_64/"
 			echo "✓ $pkg_name built successfully"
 		else
 			echo "✗ $pkg_name build completed but no package file found"
@@ -44,15 +44,6 @@ done
 
 cd "$SCRIPT_DIR"
 
-REPO_DB="$OUTPUT_DIR/repo.db.tar.gz"
-
 echo "Build process completed."
-echo "Built packages are available in: $OUTPUT_DIR"
-
-echo "Adding packages to repository..."
-if ls "$OUTPUT_DIR"/*.pkg.tar.* 1> /dev/null 2>&1; then
-	repo-add "$REPO_DB" "$OUTPUT_DIR"/*.pkg.tar.*
-	echo "✓ Repository database updated: $REPO_DB"
-else
-	echo "No packages to add to repository."
-fi
+echo "Built packages are available in: $SCRIPT_DIR/../x86_64"
+ls -lh "$SCRIPT_DIR/../x86_64"/*.pkg.tar.* 2>/dev/null || echo "No packages built."
