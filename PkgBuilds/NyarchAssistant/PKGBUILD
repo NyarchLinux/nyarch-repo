@@ -8,6 +8,7 @@ license=('GPL')
 depends=(
   "python-edge-tts"
   "python-requests"
+  "python-requests-toolbelt"
   "python-expandvars"
   "python-beautifulsoup4"
   "python-gobject" 
