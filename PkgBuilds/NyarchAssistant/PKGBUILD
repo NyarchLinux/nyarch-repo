@@ -1,5 +1,5 @@
 pkgname=nyarchassistant
-pkgver=1.2.0.r1.ge6a4854
+pkgver=1.2.5
 pkgrel=1
 pkgdesc="Nyarch Assistant (Newelle Fork)"
 arch=("any")
