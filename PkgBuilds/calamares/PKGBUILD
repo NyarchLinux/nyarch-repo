@@ -1,0 +1,47 @@
+# Ezarcher Calamares Installer pkgbuild
+
+pkgname=calamares
+pkgver=3.4.0
+_pkgver=3.4.0
+pkgrel=2
+_commit=037a317fa986034d02cc37e84ddcf3c2119565df
+pkgdesc='Distribution-independent installer framework'
+arch=('x86_64')
+license=(GPL)
+url="https://gitlab.manjaro.org/applications/calamares"
+license=('LGPL')
+depends=('cryptsetup' 'dmidecode' 'doxygen' 'gptfdisk' 'hwinfo' 'kconfig' 'kcoreaddons' 'ki18n' 'kparts' 'kpmcore' 'kservice' 'kwidgetsaddons' 'libatasmart' 'libplasma' 'libpwquality' 'polkit-qt6' 'pybind11' 'python' 'qt6-declarative' 'qt6-svg' 'qt6-tools' 'qt6-virtualkeyboard' 'qt6-webengine' 'rsync' 'solid' 'squashfs-tools' 'udisks2' 'upower' 'yaml-cpp')
+makedepends=( 'cmake' 'extra-cmake-modules' 'gawk' 'git' 'python-jsonschema' 'python-pyaml' 'python-unidecode')
+
+source=(
+#  "$pkgname-$pkgver.tar.gz::$url/-/archive/v$pkgver/calamares-v$pkgver.tar.gz"
+  "$pkgname-$pkgver-$pkgrel.tar.gz::$url/-/archive/$_commit/$pkgname-$_commit.tar.gz"
+)
+sha256sums=('edb09ad7dca23fe329d10b86c097aa381f000d7541ec7e4ecfa2f4be837b2a97')
+
+build() {
+	cd ${srcdir}/calamares-${pkgver}
+
+	mkdir -p build
+	cd build
+        cmake .. \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_INSTALL_PREFIX=/usr \
+              -DCMAKE_INSTALL_LIBDIR=/usr/lib \
+              -DINSTALL_CONFIG=OFF \
+              -DWITH_QT6=ON \
+              -DWITH_PYBIND11=ON \
+              -DSKIP_MODULES="tracking webview interactiveterminal initramfs netinstall \
+                              initramfscfg dracut dracutlukscfg finishedq summaryq \
+                              dummyprocess dummypython dummycpp usersq oemid packagechooser \
+                              dummypythonqt services-openrc keyboardq zfs zfshostid \
+                              localeq plasmalnf welcomeq notesqml packagechooserq"
+        make
+}
+
+package() {
+	cd ${srcdir}/calamares-${pkgver}/build
+	make DESTDIR="$pkgdir" install
+	install -Dm644 "../calamares.desktop" "$pkgdir/usr/share/applications/calamares.desktop"
+}
+
