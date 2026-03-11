@@ -1,0 +1,35 @@
+pkgname=catgirldownloaderqt
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Browse and save anime-style images from multiple sources"
+arch=(any)
+license=(GPL-3.0-or-later)
+depends=(
+    python
+    python-requests
+    pyside6
+    kirigami2
+)
+makedepends=(
+    python-setuptools
+    python-build
+)
+provides=(
+    catgirldownloaderqt
+)
+source=("git+https://github.com/NyarchLinux/CatgirlDownloaderQT.git")
+sha256sums=('SKIP')
+
+build() {
+    cd "CatgirlDownloaderQT"
+    python -m build --wheel --no-isolation --outdir=dist
+}
+
+package() {
+    cd "CatgirlDownloaderQT"
+    pip install --prefix="$pkgdir/usr" --root="$pkgdir" --no-deps --break-system-packages dist/*.whl
+
+    install -Dm644 moe.nyarchlinux.catgirldownloaderqt.desktop "$pkgdir/usr/share/applications/moe.nyarchlinux.catgirldownloaderqt.desktop"
+    install -Dm644 moe.nyarchlinux.catgirldownloaderqt.metainfo.xml "$pkgdir/usr/share/metainfo/moe.nyarchlinux.catgirldownloaderqt.metainfo.xml"
+    install -Dm644 moe.nyarchlinux.catgirldownloaderqt.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/moe.nyarchlinux.catgirldownloaderqt.svg"
+}
