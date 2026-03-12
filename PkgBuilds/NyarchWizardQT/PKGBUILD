@@ -1,0 +1,51 @@
+# Maintainer: Nyarch Linux
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+pkgname=nyarchwizardqt
+pkgver=0.1.0.r5.g10399ff
+pkgrel=1
+pkgdesc="Nyarch Wizard - A KDE Kirigami welcome wizard for Nyarch Linux"
+arch=('any')
+url="https://github.com/NyarchLinux/NyarchWizardQT"
+license=('GPL-3.0-or-later')
+depends=(
+  'hicolor-icon-theme'
+  'kirigami'
+  'python'
+  'pyside6'
+)
+makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+source=("git+${url}.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "${srcdir}/NyarchWizardQT"
+  _ver=$(git describe --long --tags 2>/dev/null | sed 's/\([^-]*-\)g/r\1/;s/-/./g')
+  if [[ -n "${_ver}" ]]; then
+    echo "${_ver}"
+  else
+    printf "0.1.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  fi
+}
+
+prepare() {
+  cd "${srcdir}/NyarchWizardQT"
+  # pyproject.toml references README.md - create minimal one if missing
+  [[ -f README.md ]] || echo "# Nyarch Wizard QT" > README.md
+}
+
+build() {
+  cd "${srcdir}/NyarchWizardQT"
+  python -m build --wheel
+}
+
+package() {
+  cd "${srcdir}/NyarchWizardQT"
+  python -m installer --destdir="${pkgdir}" dist/*.whl
+
+  # Desktop integration (icon, desktop file, metainfo)
+  install -Dm644 moe.nyarchlinux.wizardqt.desktop -t "${pkgdir}/usr/share/applications"
+  install -Dm644 moe.nyarchlinux.wizardqt.metainfo.xml -t "${pkgdir}/usr/share/metainfo"
+  install -Dm644 moe.nyarchlinux.wizardqt.svg "${pkgdir}/usr/share/icons/hicolor/scalable/apps/moe.nyarchlinux.wizardqt.svg"
+}
+

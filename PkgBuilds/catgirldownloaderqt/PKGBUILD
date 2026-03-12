@@ -1,35 +1,49 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 pkgname=catgirldownloaderqt
-pkgver=0.1.0
+pkgver=0.1.r0.82f7767
 pkgrel=1
-pkgdesc="Browse and save anime-style images from multiple sources"
-arch=(any)
-license=(GPL-3.0-or-later)
+pkgdesc="Browse and save anime images from multiple sources"
+arch=('any')
+url="https://github.com/NyarchLinux/CatgirlDownloaderQT"
+license=('GPL-3.0-or-later')
 depends=(
-    python
-    python-requests
-    pyside6
-    kirigami2
+  'hicolor-icon-theme'
+  'python'
+  'pyside6'
+  'python-requests'
 )
-makedepends=(
-    python-setuptools
-    python-build
-)
-provides=(
-    catgirldownloaderqt
-)
-source=("git+https://github.com/NyarchLinux/CatgirlDownloaderQT.git")
+makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+source=("git+${url}.git")
 sha256sums=('SKIP')
 
+pkgver() {
+  cd "${srcdir}/CatgirlDownloaderQT"
+  _ver=$(git describe --long --tags 2>/dev/null | sed 's/\([^-]*-\)g/r\1/;s/-/./g')
+  if [[ -n "${_ver}" ]]; then
+    echo "${_ver}"
+  else
+    printf "0.1.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  fi
+}
+
+prepare() {
+  cd "${srcdir}/CatgirlDownloaderQT"
+  # pyproject.toml references README.md - create minimal one if missing
+  [[ -f README.md ]] || echo "# Catgirl Downloader QT" > README.md
+}
+
 build() {
-    cd "CatgirlDownloaderQT"
-    python -m build --wheel --no-isolation --outdir=dist
+  cd "${srcdir}/CatgirlDownloaderQT"
+  python -m build --wheel
 }
 
 package() {
-    cd "CatgirlDownloaderQT"
-    pip install --prefix="$pkgdir/usr" --root="$pkgdir" --no-deps --break-system-packages dist/*.whl
+  cd "${srcdir}/CatgirlDownloaderQT"
+  python -m installer --destdir="${pkgdir}" dist/*.whl
 
-    install -Dm644 moe.nyarchlinux.catgirldownloaderqt.desktop "$pkgdir/usr/share/applications/moe.nyarchlinux.catgirldownloaderqt.desktop"
-    install -Dm644 moe.nyarchlinux.catgirldownloaderqt.metainfo.xml "$pkgdir/usr/share/metainfo/moe.nyarchlinux.catgirldownloaderqt.metainfo.xml"
-    install -Dm644 moe.nyarchlinux.catgirldownloaderqt.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/moe.nyarchlinux.catgirldownloaderqt.svg"
+  # Desktop integration (icon, desktop file, metainfo)
+  install -Dm644 moe.nyarchlinux.catgirldownloaderqt.desktop -t "${pkgdir}/usr/share/applications"
+  install -Dm644 moe.nyarchlinux.catgirldownloaderqt.metainfo.xml -t "${pkgdir}/usr/share/metainfo"
+  install -Dm644 moe.nyarchlinux.catgirldownloaderqt.svg "${pkgdir}/usr/share/icons/hicolor/scalable/apps/moe.nyarchlinux.catgirldownloaderqt.svg"
 }
