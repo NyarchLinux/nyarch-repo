@@ -1,0 +1,30 @@
+pkgname=python-pysilero-vad
+pkgver=3.3.0
+pkgrel=1
+pkgdesc="Pre-packaged voice activity detector using silero-vad"
+arch=('x86_64')
+url="https://github.com/rhasspy/pysilero-vad"
+license=('MIT')
+depends=('python')
+makedepends=(
+  'python-build'
+  'python-installer'
+  'python-wheel'
+  'cmake'
+  'ninja'
+  'gcc'
+)
+source=("https://files.pythonhosted.org/packages/d6/f5/9be84ec8bcbe77d798a86a5fde518d257bd997a2465c8a4704241094a495/pysilero_vad-3.3.0.tar.gz")
+sha256sums=('SKIP')
+
+build() {
+  cd "${srcdir}/pysilero_vad-${pkgver}"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "${srcdir}/pysilero_vad-${pkgver}"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/${pkgname}/README.md"
+}
