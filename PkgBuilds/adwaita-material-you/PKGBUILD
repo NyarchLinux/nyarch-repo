@@ -7,7 +7,7 @@ url="https://github.com/francescocaracciolo/adwaita-material-you"
 license=('GPL')
 depends=('python-rich' 'python-pillow' 'python-gobject' 'python-pydantic' 'python-regex' 'python-numpy')
 makedepends=('git')
-source=("git+$url.git")
+source=("git+$url.git#commit=0fb6f74240e204f2b27ae1e69920e10f0fe04d11")
 sha256sums=('SKIP')
 
 package() {
