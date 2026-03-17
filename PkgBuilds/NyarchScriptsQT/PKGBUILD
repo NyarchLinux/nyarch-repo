@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+pkgname=nyarchscriptqt
+pkgver=0.1.0.r1.g2d26419
+pkgrel=1
+pkgdesc="NyarchScript QT - A Kirigami GUI for running system maintenance scripts on Nyarch Linux"
+arch=('any')
+url="https://github.com/NyarchLinux/NyarchScriptsQT"
+license=('GPL-3.0-or-later')
+depends=(
+  'hicolor-icon-theme'
+  'kirigami'
+  'python'
+  'pyside6'
+)
+makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+source=("git+${url}.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "${srcdir}/NyarchScriptsQT"
+  _ver=$(git describe --long --tags 2>/dev/null | sed 's/\([^-]*-\)g/r\1/;s/-/./g')
+  if [[ -n "${_ver}" ]]; then
+    echo "${_ver}"
+  else
+    printf "0.1.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  fi
+}
+
+prepare() {
+  cd "${srcdir}/NyarchScriptsQT"
+  # pyproject.toml references README.md - create minimal one if missing
+  [[ -f README.md ]] || echo "# NyarchScript QT" > README.md
+}
+
+build() {
+  cd "${srcdir}/NyarchScriptsQT"
+  python -m build --wheel
+}
+
+package() {
+  cd "${srcdir}/NyarchScriptsQT"
+  python -m installer --destdir="${pkgdir}" dist/*.whl
+
+  # Desktop integration (icon, desktop file, metainfo)
+  install -Dm644 moe.nyarchlinux.scriptsqt.desktop -t "${pkgdir}/usr/share/applications"
+  install -Dm644 moe.nyarchlinux.scriptsqt.metainfo.xml -t "${pkgdir}/usr/share/metainfo"
+  install -Dm644 moe.nyarchlinux.scriptsqt.svg "${pkgdir}/usr/share/icons/hicolor/scalable/apps/moe.nyarchlinux.scriptsqt.svg"
+}
