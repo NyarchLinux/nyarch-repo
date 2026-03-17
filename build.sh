@@ -3,10 +3,34 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PKG_BUILDS_SCRIPT="$SCRIPT_DIR/PkgBuilds/build_pkgs.sh"
+PKG_BUILDS_SCRIPT="$SCRIPT_DIR/PkgBuilds/build_packages.sh"
 AUR_BUILDER_SCRIPT="$SCRIPT_DIR/AURBuilder/build_aur.sh"
 REPO_DIR="$SCRIPT_DIR/x86_64"
 PKG_BUILDS_OUTPUT="$SCRIPT_DIR/PkgBuilds/output"
+
+if [[ $# -gt 0 ]]; then
+    echo "========================================="
+    echo "Building selected packages: $*"
+    echo "========================================="
+    echo
+
+    echo "Step 1: Building selected local packages..."
+    echo "--------------------------------------------"
+    bash "$PKG_BUILDS_SCRIPT" "$@"
+    echo
+
+    echo "Step 2: Updating repository database..."
+    echo "---------------------------------------"
+    cd "$REPO_DIR" || exit 1
+    bash update_repo.sh
+    echo
+
+    echo "========================================="
+    echo "Build process completed successfully!"
+    echo "Packages are in: $REPO_DIR"
+    echo "========================================="
+    exit 0
+fi
 
 echo "========================================="
 echo "Starting full build process"

@@ -1,23 +1,24 @@
 #!/bin/bash
 
-PKGBUILDS_DIR="."
-REPO_DIR="../x86_64"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PKGBUILDS_DIR="$SCRIPT_DIR"
+REPO_DIR="$SCRIPT_DIR/../x86_64"
 
 build_package() {
     local pkg_name=$1
     local pkg_dir="$PKGBUILDS_DIR/$pkg_name"
-    
+
     if [[ ! -d "$pkg_dir" ]]; then
         echo "Error: Package '$pkg_name' not found in $PKGBUILDS_DIR"
         return 1
     fi
-    
+
     echo "Building $pkg_name..."
     pushd "$pkg_dir" > /dev/null || return 1
-    
+
     if makepkg -s; then
         echo "Successfully built $pkg_name"
-        mv *.pkg.tar.zst "../x86_64/" 2>/dev/null || true
+        mv *.pkg.tar.zst "$REPO_DIR/" 2>/dev/null || true
         popd > /dev/null
         return 0
     else
@@ -41,7 +42,7 @@ else
 fi
 
 echo "Updating repository database..."
-pushd "../x86_64" > /dev/null || exit 1
+pushd "$REPO_DIR" > /dev/null || exit 1
 bash update_repo.sh
 popd > /dev/null
 
