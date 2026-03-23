@@ -1,0 +1,16 @@
+pkgname=nyarch-mirrorlist
+pkgver=20260323
+pkgrel=1
+pkgdesc="Nyarch LInux Mirrorlist"
+url="https://nyarchlinux.moe"
+license=('GPL')
+arch=('any')
+
+backup=(etc/pacman.d/nyarch-mirrorlist)
+source=(mirrorlist)
+sha256sums=('SKIP')
+
+package() {
+  mkdir -p "$pkgdir/etc/pacman.d"
+  install -m644 "$srcdir/mirrorlist" "$pkgdir/etc/pacman.d/nyarch-mirrorlist"
+}
