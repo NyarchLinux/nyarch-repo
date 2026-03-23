@@ -1,0 +1,34 @@
+# Maintainer: Francesco Lavra <francescolavra @ tutanota dot com>
+pkgname=nekoplay
+pkgver=1.1.1
+pkgrel=1
+pkgdesc="Anime player based on Cine"
+arch=('any')
+url="https://github.com/NyarchLinux/NekoPlay"
+license=('GPL-3.0-or-later')
+depends=(
+  'gtk4'
+  'libadwaita'
+  'mpv'
+  'python-gobject'
+  'python-mpv'
+)
+makedepends=(
+  'blueprint-compiler'
+  'meson'
+)
+source=("git+$url")
+sha256sums=('SKIP')
+
+build() {
+  arch-meson "NekoPlay" build
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --no-rebuild --print-errorlogs || :
+}
+
+package() {
+  meson install -C build --no-rebuild --destdir "$pkgdir"
+}
