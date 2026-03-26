@@ -1,4 +1,5 @@
-# maintainter: Hunter Tadlock-Barnes
+# maintainter: TotallyDIO email: TotallyDIO_at_proton.me discord: @totallydio
+# please only contact me for important things like inquieries or security issues.
 # used Arch Linux CN ( http://www.archlinuxcn.org ). as format
 # See COPYING for license details.
 # pkgver is YYYYMMDD
