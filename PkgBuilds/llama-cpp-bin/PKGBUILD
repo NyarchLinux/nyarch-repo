@@ -1,0 +1,26 @@
+pkgname=llama.cpp-bin
+pkgver=b8581
+pkgrel=1
+pkgdesc="LLM inference in C/C++ (precompiled Linux binaries)"
+arch=("x86_64")
+url="https://github.com/ggerganov/llama.cpp"
+license=('MIT')
+provides=("llama.cpp" libggml ggml)
+conflicts=("llama.cpp" libggml ggml)
+depends=(curl gcc-libs openssl)
+source=("${pkgname%-bin}-${pkgver}.tar.gz"::"${url}/releases/download/${pkgver}/llama-${pkgver}-bin-ubuntu-x64.tar.gz"
+  "README-${pkgver}.md::https://raw.githubusercontent.com/ggml-org/llama.cpp/${pkgver}/README.md")
+
+sha256sums=('SKIP'
+            'SKIP')
+
+package() {
+  cd "${srcdir}/llama-${pkgver}"
+  install -d "${pkgdir}/usr/lib/llama-cpp" "${pkgdir}/usr/bin" "${pkgdir}/usr/share/licenses/$pkgname"
+  install -m755 llama-* rpc-server -t "${pkgdir}/usr/lib/llama-cpp/"
+  install -m755 lib* -t "${pkgdir}/usr/lib/llama-cpp/"
+  install -m644 LICENSE "${pkgdir}/usr/share/licenses/$pkgname/LICENSE"
+  for f in llama-* rpc-server; do
+    ln -s /usr/lib/llama-cpp/"$f" "${pkgdir}/usr/bin/$f"
+  done
+}
