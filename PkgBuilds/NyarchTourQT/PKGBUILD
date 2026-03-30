@@ -1,7 +1,5 @@
-# SPDX-License-Identifier: GPL-3.0-or-later
-
 pkgname=nyarchtourqt
-pkgver=0.1.0.r1.g2d26419
+pkgver=0.1.0.r6.gd2a176e
 pkgrel=1
 pkgdesc="Nyarch Tour - A KDE Kirigami tour application for Nyarch Linux"
 arch=('any')
@@ -9,16 +7,16 @@ url="https://github.com/NyarchLinux/NyarchTourQT"
 license=('GPL-3.0-or-later')
 depends=(
   'hicolor-icon-theme'
+  'kirigami'
   'python'
   'pyside6'
 )
 makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 source=("git+${url}.git")
 sha256sums=('SKIP')
-install=nyarchtourqt.install
 
 pkgver() {
-  cd "${srcdir}/${pkgname}"
+  cd "${srcdir}/NyarchTourQT"
   _ver=$(git describe --long --tags 2>/dev/null | sed 's/\([^-]*-\)g/r\1/;s/-/./g')
   if [[ -n "${_ver}" ]]; then
     echo "${_ver}"
@@ -28,23 +26,22 @@ pkgver() {
 }
 
 prepare() {
-  cd "${srcdir}/${pkgname}"
-  # pyproject.toml references README.md - create minimal one if missing
+  cd "${srcdir}/NyarchTourQT"
+  # pyproject.toml references README.md - create a minimal one if missing.
   [[ -f README.md ]] || echo "# Nyarch Tour QT" > README.md
 }
 
 build() {
-  cd "${srcdir}/${pkgname}"
+  cd "${srcdir}/NyarchTourQT"
   python -m build --wheel
 }
 
 package() {
-  cd "${srcdir}/${pkgname}"
+  cd "${srcdir}/NyarchTourQT"
   python -m installer --destdir="${pkgdir}" dist/*.whl
 
-  # Desktop integration (icon, desktop file, metainfo)
+  # Desktop integration (desktop file, metainfo, icon).
   install -Dm644 moe.nyarchlinux.tourqt.desktop -t "${pkgdir}/usr/share/applications"
   install -Dm644 moe.nyarchlinux.tourqt.metainfo.xml -t "${pkgdir}/usr/share/metainfo"
   install -Dm644 moe.nyarchlinux.tourqt.svg "${pkgdir}/usr/share/icons/hicolor/scalable/apps/moe.nyarchlinux.tourqt.svg"
 }
-
