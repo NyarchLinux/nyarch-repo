@@ -4,17 +4,17 @@
 # See COPYING for license details.
 # pkgver is YYYYMMDD
 pkgname=nyarch-keyring #done
-pkgver=2
+pkgver=6
 pkgrel=1
 pkgdesc='Nyarch GPG keyring'
 arch=('any')
-url='https://https://github.com/TotallyDIO/NyarchKeyringPkgbuild'
+url='https://https://github.com/NyarchLinux/NyarchKeyring'
 license=('GPL')
 depends=('archlinux-keyring')
 makedepends=('git')
 optdepends=('pkgstats: install to submit package usage statistics')
 install="nyarch-keyring.install"
-source=("git+https://github.com/TotallyDIO/NyarchKeyring.git#tag=${pkgver}")
+source=("git+https://github.com/NyarchLinux/NyarchKeyring.git")
 sha512sums=('SKIP')
 
 package() {
