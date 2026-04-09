@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 pkgname=nyarchwizardqt
-pkgver=0.1.0.r5.g10399ff
+pkgver=0.1.0.r6.g8559277
 pkgrel=1
 pkgdesc="Nyarch Wizard - A KDE Kirigami welcome wizard for Nyarch Linux"
 arch=('any')

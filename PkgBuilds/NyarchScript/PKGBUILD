@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 pkgname=nyarchscript
-pkgver=0.2.5.r1.14c06c5
+pkgver=0.2.5.r4.34fdee9
 pkgrel=1
 pkgdesc="Run maintenance scripts easily on Nyarch Linux"
 arch=('any')

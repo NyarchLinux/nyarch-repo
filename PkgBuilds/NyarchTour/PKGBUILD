@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 pkgname=nyarchtour
-pkgver=0.4.8.r2.cbcb6ff
+pkgver=0.4.8.r4.e26f225
 pkgrel=1
 pkgdesc="Introduce new users to Nyarch Linux"
 arch=('any')

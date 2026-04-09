@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 pkgname=catgirldownloader
-pkgver=0.5.r0.6793a5a
+pkgver=0.5.r3.13df2a4
 pkgrel=1
 pkgdesc="GTK4 app to download images from nekos.moe and related APIs"
 arch=('any')

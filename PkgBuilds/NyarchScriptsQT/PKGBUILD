@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 pkgname=nyarchscriptqt
-pkgver=0.1.0.r1.g2d26419
+pkgver=0.1.0.r5.g52d6965
 pkgrel=1
 pkgdesc="NyarchScript QT - A Kirigami GUI for running system maintenance scripts on Nyarch Linux"
 arch=('any')
