@@ -20,7 +20,7 @@ source=(
 sha256sums=('edb09ad7dca23fe329d10b86c097aa381f000d7541ec7e4ecfa2f4be837b2a97')
 
 build() {
-	cd ${srcdir}/calamares-${pkgver}
+	cd ${srcdir}/calamares-${_commit}
 
 	mkdir -p build
 	cd build
@@ -40,7 +40,7 @@ build() {
 }
 
 package() {
-	cd ${srcdir}/calamares-${pkgver}/build
+	cd ${srcdir}/calamares-${_commit}/build
 	make DESTDIR="$pkgdir" install
 	install -Dm644 "../calamares.desktop" "$pkgdir/usr/share/applications/calamares.desktop"
 }
