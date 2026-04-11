@@ -5,11 +5,12 @@ pkgdesc="Pre-packaged voice activity detector using silero-vad"
 arch=('x86_64')
 url="https://github.com/rhasspy/pysilero-vad"
 license=('MIT')
-depends=('python')
+depends=('python' 'libgomp')
 makedepends=(
   'python-build'
   'python-installer'
   'python-wheel'
+  'python-scikit-build-core'
   'cmake'
   'ninja'
   'gcc'
