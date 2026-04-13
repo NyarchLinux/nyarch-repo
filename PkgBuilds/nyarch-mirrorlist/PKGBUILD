@@ -1,5 +1,5 @@
 pkgname=nyarch-mirrorlist
-pkgver=20260323
+pkgver=20260412
 pkgrel=1
 pkgdesc="Nyarch LInux Mirrorlist"
 url="https://nyarchlinux.moe"
