@@ -1,0 +1,61 @@
+.pill {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.82em;
+  font-weight: bold;
+}
+.pill-green {
+  background: alpha(#2ec27e, 0.22);
+  color: #33d17a;
+}
+.pill-orange {
+  background: alpha(#ffa348, 0.20);
+  color: #ffb877;
+}
+.pill-red {
+  background: alpha(#e01b24, 0.18);
+  color: #ff7b74;
+}
+.pill-gray {
+  background: alpha(currentColor, 0.12);
+  color: alpha(currentColor, 0.75);
+}
+
+.chip {
+  border: 1px solid alpha(currentColor, 0.25);
+  border-radius: 999px;
+  padding: 2px 10px;
+}
+.chip:hover {
+  border-color: alpha(currentColor, 0.5);
+}
+
+.console-text {
+  background: #14141a;
+  color: #e8e8e8;
+  font-family: "Monospace";
+  font-size: 9.5pt;
+}
+
+.banner-ok {
+  border-left: 6px solid #2ec27e;
+}
+.banner-warn {
+  border-left: 6px solid #ffa348;
+}
+.banner-fail {
+  border-left: 6px solid #e01b24;
+}
+.banner-neutral {
+  border-left: 6px solid alpha(currentColor, 0.3);
+}
+
+.success {
+  color: #33d17a;
+}
+.warning {
+  color: #ffa348;
+}
+.error {
+  color: #ff7b74;
+}
