@@ -7,7 +7,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk, Adw, GLib, Gdk
+from gi.repository import Gtk, Adw, GLib, Gdk, Gio
 
 from services import keyring as ksvc
 
@@ -69,6 +69,14 @@ class KeyringPage(Gtk.Box):
         btn_paste = Gtk.Button(label="Import paste…")
         btn_paste.connect("clicked", lambda *_: self.paste_import_dialog())
         bar.append(btn_paste)
+
+        btn_file = Gtk.Button(label="Import file…")
+        btn_file.set_tooltip_text(
+            "Pick an armored (.asc) or binary (.gpg) public key file "
+            "and add it to the keyring"
+        )
+        btn_file.connect("clicked", lambda *_: self.file_import_dialog())
+        bar.append(btn_file)
 
         bar.append(Gtk.Box(hexpand=True))
         self.btn_bump = Gtk.Button(label="Bump pkgver")
@@ -320,6 +328,44 @@ class KeyringPage(Gtk.Box):
         dlg.connect("response", on_response)
         dlg.present()
 
+    def file_import_dialog(self):
+        if self._guard():
+            return
+        kf = self.keyring_file()
+        if kf is None:
+            self.ctx.toast("Fetch the keyring repo first")
+            return
+        flt = Gtk.FileFilter(name="PGP public keys")
+        flt.add_pattern("*.asc")
+        flt.add_pattern("*.gpg")
+        filters = Gio.ListStore.new(Gtk.FileFilter)
+        filters.append(flt)
+        dlg = Gtk.FileDialog(title="Choose a public key file", filters=filters)
+        dlg.open(self.ctx.win, None, self._on_import_file_chosen, kf)
+
+    def _on_import_file_chosen(self, dlg, result, kf):
+        try:
+            f = dlg.open_finish(result)
+        except GLib.Error:
+            return
+        path = f.get_path()
+        if not path:
+            return
+        self.set_status(f"Importing {os.path.basename(path)}…")
+
+        def work():
+            try:
+                ksvc.import_key_file(kf, path)
+                err = None
+            except Exception as e:
+                err = str(e)
+            GLib.idle_add(
+                self._after_modify, err,
+                f"key imported from {os.path.basename(path)}",
+            )
+
+        threading.Thread(target=work, daemon=True).start()
+
     def delete_key(self, key):
         if self._guard():
             return
@@ -376,11 +422,11 @@ class KeyringPage(Gtk.Box):
                 err = None
             except Exception as e:
                 armor, err = "", str(e)
-            GLib.idle_add(self._show_export, armor, err)
+            GLib.idle_add(self._show_export, armor, err, target)
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _show_export(self, armor, err):
+    def _show_export(self, armor, err, target=""):
         if err:
             self.ctx.toast(f"Export failed: {err}")
             return False
@@ -397,6 +443,7 @@ class KeyringPage(Gtk.Box):
         extra.append(frame)
         dlg.set_extra_child(extra)
         dlg.add_response("close", "Close")
+        dlg.add_response("save", "Save to file…")
         dlg.add_response("copy", "Copy to clipboard")
         dlg.set_response_appearance("copy", Adw.ResponseAppearance.SUGGESTED)
 
@@ -405,10 +452,30 @@ class KeyringPage(Gtk.Box):
                 cb = Gdk.Display.get_default().get_clipboard()
                 cb.set_content(Gdk.ContentProvider.new_for_value(armor))
                 self.ctx.toast("Armored key copied")
+            elif resp == "save":
+                sdlg = Gtk.FileDialog(title="Save public key")
+                sdlg.set_initial_name(f"{target}.asc")
+                sdlg.save(self.ctx.win, None, self._on_save_done, armor)
 
         dlg.connect("response", on_response)
         dlg.present()
         return False
+
+    def _on_save_done(self, dlg, result, armor):
+        try:
+            f = dlg.save_finish(result)
+        except GLib.Error:
+            return
+        path = f.get_path()
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(armor if armor.endswith("\n") else armor + "\n")
+        except OSError as e:
+            self.ctx.toast(f"Save failed: {e}")
+        else:
+            self.ctx.toast(f"Key saved to {os.path.basename(path)}")
 
     def bump_pkgver(self):
         try:

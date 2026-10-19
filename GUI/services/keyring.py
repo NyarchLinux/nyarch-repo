@@ -152,6 +152,21 @@ def import_armored(kf, armored_text):
     return True
 
 
+def import_key_file(kf, path):
+    """Import a public key from an armored (.asc) or binary (.gpg) file."""
+    with open(path, "rb") as f:
+        head = f.read(64)
+    if head.lstrip().startswith(b"-----BEGIN PGP PUBLIC KEY BLOCK"):
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            return import_armored(kf, f.read())
+    with _IsolatedHome(kf) as home:
+        rc, out, err = _run(home.env(), ["gpg", "--import", path])
+        if rc != 0:
+            raise RuntimeError(err.strip() or "import failed")
+        home.write_back()
+    return True
+
+
 def recv_keys(kf, ids, keyserver=DEFAULT_KEYSERVER):
     with _IsolatedHome(kf) as home:
         rc, out, err = _run(
