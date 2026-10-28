@@ -167,6 +167,70 @@ def import_key_file(kf, path):
     return True
 
 
+def list_secret_keys():
+    """List secret keys from the default GPG home (~/.gnupg)."""
+    rc, out, err = _run(
+        dict(os.environ), ["gpg", "--list-secret-keys", "--with-colons"],
+    )
+    if rc != 0:
+        raise RuntimeError(err.strip() or "gpg --list-secret-keys failed")
+    keys = []
+    last = None
+    for line in out.splitlines():
+        parts = line.split(":")
+        tag = parts[0]
+        if tag in ("sec", "ssb"):
+            last = {
+                "keyid": parts[4],
+                "expires": parts[6] or "",
+                "fpr": "",
+                "uids": [],
+                "caps": parts[11] if len(parts) > 11 else "",
+                "sub": tag == "ssb",
+            }
+            if tag == "sec":
+                keys.append(last)
+        elif tag == "fpr" and last is not None and not last["fpr"]:
+            last["fpr"] = parts[9]
+        elif tag == "uid" and last is not None:
+            uid = parts[9]
+            if uid not in last["uids"]:
+                last["uids"].append(uid)
+    return keys
+
+
+def export_secret_key(fingerprint):
+    """Export an armored PRIVATE key from the default GPG home."""
+    rc, out, err = _run(
+        dict(os.environ),
+        ["gpg", "--armor", "--export-secret-keys", fingerprint],
+        timeout=600,
+    )
+    if rc != 0 or "PRIVATE KEY BLOCK" not in out:
+        raise RuntimeError(err.strip() or "nothing to export")
+    return out
+
+
+def import_private_key_file(path):
+    """Import a private key file into the default GPG home (~/.gnupg)."""
+    with open(path, "rb") as f:
+        head = f.read(64)
+    text = head.lstrip()
+    if text.startswith(b"-----BEGIN PGP PUBLIC KEY BLOCK"):
+        raise RuntimeError(
+            "that file contains a PUBLIC key — export the private key with "
+            "`gpg --export-secret-keys` first"
+        )
+    rc, out, err = _run(
+        dict(os.environ), ["gpg", "--import", path], timeout=600,
+    )
+    if rc != 0:
+        raise RuntimeError(err.strip() or "import failed")
+    if "secret" not in (err + out):
+        raise RuntimeError("no private key found in that file")
+    return True
+
+
 def recv_keys(kf, ids, keyserver=DEFAULT_KEYSERVER):
     with _IsolatedHome(kf) as home:
         rc, out, err = _run(

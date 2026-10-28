@@ -98,6 +98,35 @@ class KeyringPage(Gtk.Box):
         self.status.add_css_class("dim-label")
         self.append(self.status)
 
+        self.append(Gtk.Separator(margin_top=2, margin_bottom=2))
+        prow = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        ptitle = Gtk.Label(halign=Gtk.Align.START, valign=Gtk.Align.CENTER,
+                           wrap=True)
+        ptitle.set_markup(
+            "<b>My private signing key</b> <span alpha='55%'>"
+            "(~/.gnupg — move to another machine)</span>"
+        )
+        prow.append(ptitle)
+        prow.append(Gtk.Box(hexpand=True))
+        self.btn_exp_priv = Gtk.Button(label="Export…")
+        self.btn_exp_priv.set_tooltip_text(
+            "Save an armored private key (.asc) to move your signing key "
+            "elsewhere. gpg may ask for your passphrase. Keep the file secret."
+        )
+        self.btn_exp_priv.connect(
+            "clicked", lambda *_: self.export_private_dialog()
+        )
+        prow.append(self.btn_exp_priv)
+        self.btn_imp_priv = Gtk.Button(label="Import…")
+        self.btn_imp_priv.set_tooltip_text(
+            "Add a private key from an .asc/.gpg file to this machine's keyring"
+        )
+        self.btn_imp_priv.connect(
+            "clicked", lambda *_: self.import_private_dialog()
+        )
+        prow.append(self.btn_imp_priv)
+        self.append(prow)
+
         scroll = Gtk.ScrolledWindow(vexpand=True)
         self.listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         self.listbox.add_css_class("boxed-list")
@@ -476,6 +505,190 @@ class KeyringPage(Gtk.Box):
             self.ctx.toast(f"Save failed: {e}")
         else:
             self.ctx.toast(f"Key saved to {os.path.basename(path)}")
+
+    # ---- private signing key (~/.gnupg) ---------------------------------
+
+    def export_private_dialog(self):
+        if self._guard():
+            return
+        self._set_priv_buttons(False)
+        self.set_status("Listing private keys…")
+
+        def work():
+            try:
+                keys = ksvc.list_secret_keys()
+                err = None
+            except Exception as e:
+                keys, err = [], str(e)
+            GLib.idle_add(self._pick_private_key, keys, err)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _set_priv_buttons(self, sensitive):
+        self.btn_exp_priv.set_sensitive(sensitive)
+        self.btn_imp_priv.set_sensitive(sensitive)
+
+    def _pick_private_key(self, keys, err):
+        try:
+            if err:
+                self.ctx.toast(f"Failed: {err}")
+                self.set_status(f"Failed: {err}")
+                return False
+            if not keys:
+                self.ctx.toast("No private keys found in ~/.gnupg")
+                self.set_status("")
+                return False
+            if len(keys) == 1:
+                self._do_private_export(keys[0])
+                return False
+            options = []
+            for k in keys:
+                uid = k["uids"][0] if k["uids"] else k["keyid"]
+                fpr = k["fpr"] or k["keyid"]
+                options.append(f"{uid} — {fpr[:16]}")
+            options[0] += "   (default signing key)"
+            dlg = Adw.MessageDialog.new(
+                self.ctx.win, "Export which private key?", None
+            )
+            dropdown = Gtk.DropDown.new_from_strings(options)
+            extra = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            extra.append(dropdown)
+            dlg.set_extra_child(extra)
+            dlg.add_response("cancel", "Cancel")
+            dlg.add_response("ok", "Export")
+            dlg.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
+
+            def on_response(_d, resp):
+                if resp != "ok":
+                    return
+                idx = dropdown.get_selected()
+                if idx < len(keys):
+                    self._do_private_export(keys[idx])
+
+            dlg.connect("response", on_response)
+            dlg.present()
+            return False
+        finally:
+            self._set_priv_buttons(True)
+
+    def _do_private_export(self, key):
+        target = key["fpr"] or key["keyid"]
+        uid = key["uids"][0] if key["uids"] else target
+        self.set_status(f"Exporting {uid} — gpg may ask for your passphrase…")
+
+        def work():
+            try:
+                armor = ksvc.export_secret_key(target)
+                err = None
+            except Exception as e:
+                armor, err = "", str(e)
+            GLib.idle_add(self._save_private_export, armor, err, target)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _save_private_export(self, armor, err, target):
+        self._set_priv_buttons(True)
+        if err:
+            self.ctx.toast(f"Export failed: {err}")
+            self.set_status(f"Export failed: {err}")
+            return False
+        sdlg = Gtk.FileDialog(title="Save private key")
+        sdlg.set_initial_name(f"{target}.private.asc")
+        sdlg.save(self.ctx.win, None, self._on_private_saved, armor)
+        return False
+
+    def _on_private_saved(self, dlg, result, armor):
+        try:
+            f = dlg.save_finish(result)
+        except GLib.Error:
+            return
+        path = f.get_path()
+        if not path:
+            return
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(armor if armor.endswith("\n") else armor + "\n")
+            os.chmod(path, 0o600)
+        except OSError as e:
+            self.ctx.toast(f"Save failed: {e}")
+            return
+        warn = Adw.MessageDialog.new(
+            self.ctx.win,
+            "Private key saved",
+            f"Saved to <b>{esc(os.path.basename(path))}</b>.\n\n"
+            "It is protected by your passphrase, but treat the file as a "
+            "secret: transfer it over a secure channel, import it on the "
+            "other machine, then delete it (<tt>shred -u</tt>). Never commit "
+            "or share it.",
+        )
+        warn.add_response("close", "OK")
+        warn.present()
+        self.set_status(
+            f"Private key exported to {os.path.basename(path)} — "
+            "delete it after importing"
+        )
+
+    def import_private_dialog(self):
+        if self._guard():
+            return
+        dlg = Adw.MessageDialog.new(
+            self.ctx.win,
+            "Import a private key?",
+            "This adds the private key from the chosen file to this "
+            "machine's GPG keyring (<tt>~/.gnupg</tt>). Only import keys you "
+            "control; the file must have been exported with "
+            "<tt>--export-secret-keys</tt> (or the GUI export button).",
+        )
+        dlg.add_response("cancel", "Cancel")
+        dlg.add_response("ok", "Choose file…")
+        dlg.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
+
+        def on_response(_d, resp):
+            if resp != "ok":
+                return
+            flt = Gtk.FileFilter(name="PGP keys")
+            flt.add_pattern("*.asc")
+            flt.add_pattern("*.gpg")
+            filters = Gio.ListStore.new(Gtk.FileFilter)
+            filters.append(flt)
+            fdlg = Gtk.FileDialog(title="Choose a private key file",
+                                  filters=filters)
+            fdlg.open(self.ctx.win, None, self._on_private_file_chosen)
+
+        dlg.connect("response", on_response)
+        dlg.present()
+
+    def _on_private_file_chosen(self, dlg, result):
+        try:
+            f = dlg.open_finish(result)
+        except GLib.Error:
+            return
+        path = f.get_path()
+        if not path:
+            return
+        self._set_priv_buttons(False)
+        self.set_status(f"Importing private key from {os.path.basename(path)}…")
+
+        def work():
+            try:
+                ksvc.import_private_key_file(path)
+                err = None
+            except Exception as e:
+                err = str(e)
+            GLib.idle_add(self._after_private_import, err, path)
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _after_private_import(self, err, path):
+        self._set_priv_buttons(True)
+        name = os.path.basename(path)
+        if err:
+            self.ctx.toast(f"Failed: {err}")
+            self.set_status(f"Failed: {err}")
+        else:
+            self.ctx.toast(f"Private key imported from {name}")
+            self.set_status(f"Private key imported from {name}")
+        return False
 
     def bump_pkgver(self):
         try:
