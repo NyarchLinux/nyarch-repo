@@ -128,6 +128,38 @@ class KeyringPage(Gtk.Box):
         prow.append(self.btn_imp_priv)
         self.append(prow)
 
+        self._signing_keys = []
+        self._signing_fingerprints = [""]
+        self._updating_signing_key = False
+        self._loading_signing_keys = False
+        signing_list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        signing_list.add_css_class("boxed-list")
+        self.signing_key_row = Adw.ComboRow(
+            title="Package signing key",
+            enable_search=True,
+        )
+        self.signing_key_row.set_tooltip_text(
+            "Used for manual package signing and automatic signing after builds. "
+            "Changes apply to the next signing batch, not existing signatures. "
+            "The public key must be trusted by the Nyarch keyring."
+        )
+        self.signing_key_row.connect(
+            "notify::selected", self._on_signing_key_selected,
+        )
+        self.btn_signing_refresh = Gtk.Button(
+            icon_name="view-refresh-symbolic",
+            valign=Gtk.Align.CENTER,
+            tooltip_text="Reload private signing keys",
+        )
+        self.btn_signing_refresh.add_css_class("flat")
+        self.btn_signing_refresh.connect(
+            "clicked", lambda *_: self.refresh_signing_keys(),
+        )
+        self.signing_key_row.add_suffix(self.btn_signing_refresh)
+        signing_list.append(self.signing_key_row)
+        self.append(signing_list)
+        self._render_signing_keys([])
+
         scroll = Gtk.ScrolledWindow(vexpand=True)
         self.listbox = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         self.listbox.add_css_class("boxed-list")
@@ -139,6 +171,79 @@ class KeyringPage(Gtk.Box):
         self.append(scroll)
 
         GLib.idle_add(self.refresh_list)
+        GLib.idle_add(self.refresh_signing_keys)
+
+    def refresh_signing_keys(self):
+        if self._loading_signing_keys:
+            return False
+        self._loading_signing_keys = True
+        self.btn_signing_refresh.set_sensitive(False)
+        self.signing_key_row.set_sensitive(False)
+
+        def work():
+            try:
+                keys = ksvc.list_signing_keys()
+                err = None
+            except Exception as e:
+                keys, err = self._signing_keys, str(e)
+            GLib.idle_add(self._render_signing_keys, keys, err)
+
+        threading.Thread(target=work, daemon=True).start()
+        return False
+
+    def _render_signing_keys(self, keys, err=None):
+        self._signing_keys = keys
+        selected = self.ctx.builder.signing_key
+        fingerprints = [""] + [k["fpr"] for k in keys]
+        options = ["GPG default (gpg.conf)"]
+        for key in keys:
+            uid = key["uids"][0] if key["uids"] else key["keyid"]
+            options.append(f"{uid} — {key['fpr']}")
+        missing = selected and selected not in fingerprints
+        if missing:
+            fingerprints.append(selected)
+            options.append(f"Unavailable key — {selected}")
+        self._updating_signing_key = True
+        try:
+            self._signing_fingerprints = fingerprints
+            self.signing_key_row.set_model(Gtk.StringList.new(options))
+            self.signing_key_row.set_selected(fingerprints.index(selected))
+        finally:
+            self._updating_signing_key = False
+        if err:
+            subtitle = f"Cannot load signing keys: {err}"
+        elif missing:
+            subtitle = (
+                "Selected key is unavailable. Import it or choose another key; "
+                "signing will not fall back to a different key."
+            )
+        elif selected:
+            subtitle = "Used for manual signing and after builds. Choice saved."
+        else:
+            subtitle = "Let GPG choose the key for manual signing and builds."
+            if not keys:
+                subtitle += " No usable private signing keys found."
+        self.signing_key_row.set_subtitle(subtitle)
+        self._loading_signing_keys = False
+        self.btn_signing_refresh.set_sensitive(True)
+        self.signing_key_row.set_sensitive(True)
+        return False
+
+    def _on_signing_key_selected(self, row, _pspec):
+        if self._updating_signing_key:
+            return
+        index = row.get_selected()
+        if index >= len(self._signing_fingerprints):
+            return
+        fingerprint = self._signing_fingerprints[index]
+        if fingerprint == self.ctx.builder.signing_key:
+            return
+        try:
+            self.ctx.builder.set_signing_key(fingerprint)
+        except (OSError, ValueError) as e:
+            self.ctx.toast(f"Cannot save signing key: {e}")
+        # Changing ComboRow's model inside notify::selected can re-enter GTK.
+        GLib.idle_add(self._render_signing_keys, self._signing_keys)
 
     def _guard(self):
         if self.ctx.runner.busy:
@@ -690,6 +795,7 @@ class KeyringPage(Gtk.Box):
         else:
             self.ctx.toast(f"Private key imported from {name}")
             self.set_status(f"Private key imported from {name}")
+            self.refresh_signing_keys()
         return False
 
     def bump_pkgver(self):
@@ -723,3 +829,4 @@ class KeyringPage(Gtk.Box):
 
     def refresh(self):
         self.refresh_list()
+        self.refresh_signing_keys()

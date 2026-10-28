@@ -5,11 +5,20 @@ import re
 import shlex
 
 from .repo_db import vercmp
+from . import keyring
 
 
 class Builder:
     def __init__(self, ctx):
         self.ctx = ctx
+        self.signing_key = ""
+        try:
+            self.signing_key = keyring.load_signing_key()
+        except (OSError, ValueError) as e:
+            ctx.toast(f"Cannot load signing key; using GPG default: {e}")
+
+    def set_signing_key(self, fingerprint):
+        self.signing_key = keyring.save_signing_key(fingerprint)
 
     @property
     def runner(self):
@@ -159,6 +168,8 @@ class Builder:
             return
         failures = []
         state = {"i": 0}
+        # Keep one signer throughout this batch, even if the GUI selection changes.
+        signing_key = self.signing_key
 
         def nxt(prev_ok=None, idx=None):
             if idx is not None and not prev_ok:
@@ -174,9 +185,13 @@ class Builder:
                 state["i"] += 1
                 nxt(ok, j)
 
+            argv = ["gpg", "--detach-sign", "--use-agent"]
+            if signing_key:
+                argv.extend(["--local-user", signing_key])
+            argv.append(path)
             self.runner.run(
                 self.ctx.x86_64_dir,
-                ["gpg", "--detach-sign", "--use-agent", path],
+                argv,
                 f"Signing {name}",
                 done,
             )

@@ -1,5 +1,6 @@
 import glob
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -197,6 +198,55 @@ def list_secret_keys():
             if uid not in last["uids"]:
                 last["uids"].append(uid)
     return keys
+
+
+def list_signing_keys():
+    """List private keys with a usable signing primary key or subkey."""
+    return [
+        key for key in list_secret_keys()
+        if "S" in key["caps"] and "D" not in key["caps"]
+    ]
+
+
+def _signing_key_path():
+    config = os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config")
+    return os.path.join(config, "nyarch-repo-manager", "signing-key")
+
+
+def _signing_key_value(value):
+    value = value.strip().upper()
+    if value and not re.fullmatch(r"(?:[0-9A-F]{40}|[0-9A-F]{64})", value):
+        raise ValueError("signing key must be a full GPG fingerprint")
+    return value
+
+
+def load_signing_key():
+    """Load the GUI's signing fingerprint, or empty for GPG's default."""
+    try:
+        with open(_signing_key_path(), encoding="utf-8") as f:
+            return _signing_key_value(f.read())
+    except FileNotFoundError:
+        return ""
+
+
+def save_signing_key(fingerprint):
+    """Save and return the signing fingerprint without changing gpg.conf."""
+    fingerprint = _signing_key_value(fingerprint)
+    path = _signing_key_path()
+    directory = os.path.dirname(path)
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=directory, delete=False,
+    ) as f:
+        tmp = f.name
+        try:
+            f.write(fingerprint + "\n")
+            f.close()
+            os.replace(tmp, path)
+        finally:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+    return fingerprint
 
 
 def export_secret_key(fingerprint):
