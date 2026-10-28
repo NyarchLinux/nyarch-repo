@@ -19,6 +19,7 @@ from pages.health import HealthPage
 from pages.local_builds import LocalBuildsPage
 from pages.keyring import KeyringPage
 from pages.mirrors import MirrorsPage
+from pages.editor import EditorPage
 
 
 class AppContext:
@@ -31,6 +32,7 @@ NAV_ITEMS = [
     ("updates", "software-update-available-symbolic", "AUR Updates"),
     ("health", "security-high-symbolic", "Integrity"),
     ("local", "applications-engineering-symbolic", "Local PKGBUILDs"),
+    ("editor", "document-edit-symbolic", "PKGBUILD Editor"),
     ("keyring", "dialog-password-symbolic", "Keyring"),
     ("mirrors", "applications-internet-symbolic", "Mirrors"),
 ]
@@ -51,6 +53,8 @@ class MainWindow(Adw.ApplicationWindow):
         ctx.toast = self.toast
         ctx.reload_repo = self.reload_repo
         ctx.goto_package = self.goto_package
+        ctx.open_pkgbuild = self.open_pkgbuild
+        ctx.open_terminal = self.open_terminal
         ctx.repo_root = os.path.dirname(gui_dir)
         ctx.x86_64_dir = os.path.join(ctx.repo_root, "x86_64")
         ctx.pkgbuilds_dir = os.path.join(ctx.repo_root, "PkgBuilds")
@@ -120,7 +124,7 @@ class MainWindow(Adw.ApplicationWindow):
         )
         content_toolbar.add_top_bar(header)
 
-        console = ConsolePanel()
+        console = ConsolePanel(cwd=ctx.repo_root)
         self.console = console
         self.term_frame = Gtk.Frame()
         self.term_frame.add_css_class("term-frame")
@@ -145,6 +149,7 @@ class MainWindow(Adw.ApplicationWindow):
             "updates": UpdatesPage(ctx),
             "health": HealthPage(ctx),
             "local": LocalBuildsPage(ctx),
+            "editor": EditorPage(ctx),
             "keyring": KeyringPage(ctx),
             "mirrors": MirrorsPage(ctx),
         }
@@ -180,6 +185,26 @@ class MainWindow(Adw.ApplicationWindow):
         self.nav_list.select_row(self.nav_list.get_row_at_index(0))
 
         GLib.idle_add(self._initial_load)
+        self.connect("close-request", self._on_close_requested)
+
+    def open_pkgbuild(self, path):
+        self.pages["editor"].open(path)
+
+    def open_terminal(self, cwd=None):
+        self.term_toggle.set_active(True)
+        if not self.console.open_shell(cwd):
+            self.toast("Install vte4 to use the interactive terminal")
+
+    def _on_close_requested(self, *_):
+        if self.pages["editor"].dirty:
+            self.pages["editor"].confirm_discard(self._close)
+            return True
+        self.console.close_shells()
+        return False
+
+    def _close(self):
+        self.console.close_shells()
+        self.destroy()
 
     def _initial_load(self):
         self.reload_repo(lambda: None)

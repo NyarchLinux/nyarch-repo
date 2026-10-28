@@ -69,9 +69,9 @@ class LocalBuildsPage(Gtk.Box):
 
         intro = Gtk.Label(halign=Gtk.Align.START, xalign=0, wrap=True)
         intro.set_markup(
-            "Packages defined in <b>PkgBuilds/</b>. Building runs "
-            "<tt>makepkg -sf --noconfirm</tt> in each directory with live output "
-            "below, then moves artifacts to the repository."
+            "Update a single package or build all packages in <b>PkgBuilds/</b>. "
+            "Missing dependencies are resolved automatically. Edit a PKGBUILD "
+            "before building, and follow live output in the terminal below."
         )
         intro.add_css_class("dim-label")
         self.append(intro)
@@ -124,7 +124,11 @@ class LocalBuildsPage(Gtk.Box):
                 sub += f"  ·  in repository ({state})"
             row.set_subtitle(sub)
 
-            btn = Gtk.Button(label="Build", valign=Gtk.Align.CENTER)
+            edit = Gtk.Button(label="Edit PKGBUILD", valign=Gtk.Align.CENTER)
+            edit.connect("clicked", lambda *_b, d=item["dir"]: self.ctx.open_pkgbuild(
+                os.path.join(self.ctx.pkgbuilds_dir, d, "PKGBUILD")))
+            row.add_suffix(edit)
+            btn = Gtk.Button(label="Update", valign=Gtk.Align.CENTER)
             btn.connect("clicked", lambda *_b, d=item["dir"]: self.build_one(d))
             row.add_suffix(btn)
             self.listbox.append(row)

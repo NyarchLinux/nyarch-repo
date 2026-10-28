@@ -2,7 +2,8 @@ import datetime
 import glob
 import os
 import re
-import shlex
+import sys
+import tempfile
 
 from .repo_db import vercmp
 from . import keyring
@@ -57,108 +58,65 @@ class Builder:
         return [n for n in sorted(set(names)) if n not in existing]
 
     def build_aur_packages(self, names, on_done):
+        self._build_targets("aur", names, on_done)
+
+    def build_local(self, dirs, on_done):
+        self._build_targets("local", dirs, on_done)
+
+    def _build_targets(self, source, names, on_done):
         names = list(dict.fromkeys(names))
         if not names:
             on_done({"built": [], "failed": []})
             return
-        build_dir = self.ctx.aur_build_dir
-        repo_dir = self.ctx.x86_64_dir
-        steps = []
         built = []
         failed = []
-
-        for name in names:
-            dst = os.path.join(build_dir, name)
-            clone_cmd = (
-                f"rm -rf {shlex.quote(dst)} && "
-                f"git clone --depth 1 {shlex.quote('https://aur.archlinux.org/' + name + '.git')} "
-                f"{shlex.quote(dst)}"
-            )
-            steps.append((f"Cloning {name} from AUR", ["bash", "-c", clone_cmd], build_dir))
-            steps.append(
-                (f"Building {name}", ["makepkg", "-sf", "--noconfirm"], dst)
-            )
-            steps.append(
-                (
-                    f"Installing {name} into repository",
-                    ["bash", "-c", self._move_script(repo_dir)],
-                    dst,
-                )
-            )
-
         state = {"i": 0}
 
         def run_next():
             i = state["i"]
-            if i >= len(steps):
+            if i >= len(names):
                 self._finalize(built, failed, on_done)
                 return
-            title, argv, cwd = steps[i]
-            step_kind = title.split(" ")[0].lower()
-            pkg = title.split(" ", 1)[-1]
+            name = names[i]
 
-            def step_done(ok, kind=step_kind, p=pkg):
-                if kind == "building":
-                    (built if ok else failed).append(p)
+            def step_done(ok):
+                (built if ok else failed).append(name)
                 state["i"] += 1
                 run_next()
 
-            self.runner.run(cwd, argv, title, step_done)
-
-        run_next()
-
-    def build_local(self, dirs, on_done):
-        dirs = list(dict.fromkeys(dirs))
-        if not dirs:
-            on_done({"built": [], "failed": []})
-            return
-        base = self.ctx.pkgbuilds_dir
-        repo_dir = self.ctx.x86_64_dir
-        steps = []
-        built = []
-        failed = []
-        for d in dirs:
-            cwd = os.path.join(base, d)
-            steps.append((f"Building {d}", ["makepkg", "-sf", "--noconfirm"], cwd))
-            steps.append(
-                (
-                    f"Installing {d} into repository",
-                    ["bash", "-c", self._move_script(repo_dir)],
-                    cwd,
-                )
+            self.runner.run(
+                self.ctx.repo_root,
+                [sys.executable, os.path.join(self.ctx.repo_root, "package_builder.py"),
+                 "--source", source, "--no-update-db", "--", name],
+                f"Updating {name} and required dependencies", step_done,
             )
-        state = {"i": 0}
-
-        def run_next():
-            i = state["i"]
-            if i >= len(steps):
-                self._finalize(built, failed, on_done)
-                return
-            title, argv, cwd = steps[i]
-
-            def step_done(ok, idx=i):
-                kind = steps[idx][0].split(" ")[0].lower()
-                pkg = steps[idx][0].split(" ", 1)[-1]
-                if kind == "building":
-                    (built if ok else failed).append(pkg)
-                state["i"] += 1
-                run_next()
-
-            self.runner.run(cwd, argv, title, step_done)
 
         run_next()
 
-    @staticmethod
-    def _move_script(repo_dir):
-        return (
-            "shopt -s nullglob\n"
-            "files=(./*.pkg.tar.*)\n"
-            "if [ ${#files[@]} -eq 0 ]; then\n"
-            "  echo 'No package artifact produced'\n"
-            "  exit 1\n"
-            "fi\n"
-            "mv -f \"${files[@]}\" " + shlex.quote(repo_dir) + "/\n"
-            "echo \"Moved ${#files[@]} artifact(s) into repository\""
+    def prepare_aur_pkgbuild(self, name, on_done):
+        with tempfile.NamedTemporaryFile(prefix="nyarch-pkgbuild-", delete=False) as f:
+            path_file = f.name
+
+        def done(ok):
+            try:
+                if ok:
+                    with open(path_file, encoding="utf-8") as f:
+                        path = f.read().strip()
+                    if not os.path.isfile(path):
+                        raise OSError("Fetched PKGBUILD not found")
+                    on_done(path)
+                else:
+                    self.ctx.toast("Could not fetch PKGBUILD; see terminal")
+            except OSError as error:
+                self.ctx.toast(str(error))
+            finally:
+                os.unlink(path_file)
+
+        self.runner.run(
+            self.ctx.repo_root,
+            [sys.executable, os.path.join(self.ctx.repo_root, "package_builder.py"),
+             "--source", "aur", "--prepare", "--path-file", path_file, "--", name],
+            f"Opening AUR PKGBUILD for {name}", done,
         )
 
     def sign_unsigned(self, on_done):
@@ -207,6 +165,9 @@ class Builder:
         )
 
     def _finalize(self, built, failed, on_done):
+        # Include newly produced artifacts in signing, not only the previous scan.
+        self.ctx.repo_db.load()
+
         def after_sign(signed, sign_failures):
             if sign_failures:
                 self.ctx.toast(
@@ -214,7 +175,11 @@ class Builder:
                 )
 
             def after_db(ok):
-                on_done({"built": built, "failed": failed})
+                failures = list(failed)
+                failures.extend("signing: " + name for name in sign_failures)
+                if not ok:
+                    failures.append("repository database")
+                on_done({"built": built, "failed": failures})
 
             self.update_db(after_db)
 

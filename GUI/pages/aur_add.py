@@ -51,6 +51,9 @@ class AurAddPage(Gtk.Box):
         self.btn_add.set_sensitive(False)
         self.btn_add.connect("clicked", lambda *_: self.start_add())
         bar.append(self.btn_add)
+        self.btn_edit = Gtk.Button(label="Edit PKGBUILD", sensitive=False)
+        self.btn_edit.connect("clicked", lambda *_: self.edit_pkgbuild())
+        bar.append(self.btn_edit)
         self.append(bar)
 
         self.card_frame = Gtk.Frame(margin_top=4)
@@ -82,8 +85,11 @@ class AurAddPage(Gtk.Box):
         name = self.entry.get_text().strip()
         if not name:
             return
+        self._working = True
+        self.pkg = None
         self.btn_lookup.set_sensitive(False)
         self.btn_add.set_sensitive(False)
+        self.btn_edit.set_sensitive(False)
         self.card_frame.set_visible(False)
         self.status.set_text(f"Looking up '{name}' on the AUR…")
 
@@ -98,6 +104,7 @@ class AurAddPage(Gtk.Box):
         threading.Thread(target=work, daemon=True).start()
 
     def _lookup_done(self, rec, err):
+        self._working = False
         self.btn_lookup.set_sensitive(True)
         if err is not None:
             self.status.set_text(f"AUR lookup failed: {err}")
@@ -157,13 +164,19 @@ class AurAddPage(Gtk.Box):
 
         self.card_frame.set_visible(True)
         self.btn_add.set_sensitive(True)
+        self.btn_edit.set_sensitive(True)
         self.status.set_text("")
         return False
+
+    def edit_pkgbuild(self):
+        if self.pkg and not self._guard_busy():
+            self.ctx.builder.prepare_aur_pkgbuild(self.pkg["Name"], self.ctx.open_pkgbuild)
 
     def start_add(self):
         if self._guard_busy() or self.pkg is None:
             return
         name = self.pkg["Name"]
+        self._working = True
         self.btn_add.set_sensitive(False)
         self.btn_lookup.set_sensitive(False)
         self.status.set_text(f"Resolving dependency closure of '{name}'…")
@@ -180,6 +193,7 @@ class AurAddPage(Gtk.Box):
 
     def _resolve_done(self, visited, missing, err):
         if err is not None:
+            self._working = False
             self.status.set_text(f"Dependency resolution failed: {err}")
             self.btn_add.set_sensitive(True)
             self.btn_lookup.set_sensitive(True)
@@ -218,13 +232,13 @@ class AurAddPage(Gtk.Box):
         lines = [action_verb]
         if new_pkgs:
             lines.append("")
-            lines.append(f"Missing AUR dependencies to build ({len(new_pkgs)}):")
+            lines.append(f"AUR dependencies absent from this repository ({len(new_pkgs)}):")
             lines.extend("  • " + p for p in new_pkgs[:40])
             if len(new_pkgs) > 40:
                 lines.append(f"  … and {len(new_pkgs) - 40} more")
         if rebuild:
             lines.append("")
-            lines.append(f"Outdated dependencies to update ({len(rebuild)}):")
+            lines.append(f"Dependencies with newer AUR versions ({len(rebuild)}):")
             lines.extend("  • " + p for p in rebuild[:20])
             if len(rebuild) > 20:
                 lines.append(f"  … and {len(rebuild) - 20} more")
@@ -240,6 +254,12 @@ class AurAddPage(Gtk.Box):
             )
 
         build_list = [target] + new_pkgs + rebuild
+        lines.extend([
+            "", "Only the selected package is forced to rebuild. Dependencies are "
+            "built or installed only when needed to satisfy the build. Local and "
+            "AUR dependencies are resolved automatically; installed versions that "
+            "satisfy the build are kept. Edited AUR checkouts are preserved.",
+        ])
         confirm_label = (
             "Update & Build" if local_target is not None else "Add & Build"
         )
@@ -257,11 +277,16 @@ class AurAddPage(Gtk.Box):
         return False
 
     def _reset(self):
+        self._working = False
         self.btn_add.set_sensitive(self.pkg is not None)
         self.btn_lookup.set_sensitive(True)
         self.status.set_text("")
 
     def _confirmed(self, build_list):
+        if self.ctx.runner.busy:
+            self.ctx.toast("Another operation is already running")
+            self._reset()
+            return
         target = self.pkg["Name"]
         try:
             self.ctx.builder.append_unique(self.ctx.aur_pkgs_file, [target])
@@ -271,10 +296,8 @@ class AurAddPage(Gtk.Box):
             self._reset()
             return False
         self._working = True
-        uniq = list(dict.fromkeys(build_list))
         self.status.set_text(
-            f"Building {len(uniq)} package(s): {', '.join(uniq[:8])}"
-            + ("…" if len(uniq) > 8 else "")
+            f"Updating {target} and any required dependencies…"
         )
 
         def done(summary):
@@ -297,7 +320,9 @@ class AurAddPage(Gtk.Box):
 
             GLib.idle_add(apply)
 
-        self.ctx.builder.build_aur_packages(uniq, done)
+        # Only the requested target is forced; the shared builder resolves needed
+        # dependencies in build order rather than rebuilding the whole closure.
+        self.ctx.builder.build_aur_packages([target], done)
 
     def refresh(self):
         pass

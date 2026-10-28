@@ -55,6 +55,13 @@ class AurClient:
     def info_one(self, name):
         return self.info([name]).get(name)
 
+    def providers(self, name):
+        response = self.session.get(
+            RPC_URL + "/search/" + name, params={"by": "provides"}, timeout=20
+        )
+        response.raise_for_status()
+        return sorted(response.json().get("results", []), key=lambda p: p["Name"])
+
     def resolve_closure(self, roots):
         visited = {}
         missing = []

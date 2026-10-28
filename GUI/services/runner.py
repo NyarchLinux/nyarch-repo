@@ -39,6 +39,7 @@ class Runner:
             "on_done": on_done,
         }
         self.queue.append(op)
+        self._set_busy(True)
         GLib.idle_add(self._pump)
 
     def _pump(self, *_):
@@ -50,6 +51,7 @@ class Runner:
         self.current_title = op["title"]
         if self.on_current_changed:
             self.on_current_changed(op["title"])
+        self.console.show_output()
         self.console.write(b"\n")
         self.console.write(
             f"\x1b[1;36m\u2554\u2550 {op['title']} \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\x1b[0m\n".encode()
@@ -70,9 +72,14 @@ class Runner:
         cwd = op["cwd"]
         argv = op["argv"]
 
-        def on_spawned(term_, pid, _data=None):
-            if self.current is not None:
-                self.current["_pid"] = int(pid)
+        def on_spawned(term_, pid, error=None, _data=None):
+            if self.current is not op:
+                return
+            if pid < 0:
+                self.console.write_line(f"[spawn failed: {error}]")
+                GLib.idle_add(self._finish, -1)
+            else:
+                op["_pid"] = int(pid)
 
         try:
             op["_pty"] = True
@@ -81,7 +88,7 @@ class Runner:
                 working_directory=cwd,
                 argv=argv,
                 envv=None,
-                spawn_flags=GLib.SpawnFlags.DEFAULT,
+                spawn_flags=GLib.SpawnFlags.SEARCH_PATH,
                 timeout=-1,
                 cancellable=None,
                 callback=on_spawned,
@@ -200,7 +207,7 @@ class Runner:
         cb = op.get("on_done")
         self.current = None
         self.current_title = None
-        self._set_busy(False)
+        self._set_busy(bool(self.queue))
         if self.on_current_changed:
             self.on_current_changed(None)
         if cb:

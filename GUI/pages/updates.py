@@ -55,6 +55,9 @@ class UpdatesPage(Gtk.Box):
         )
         self.btn_selected.connect("clicked", lambda *_: self.update_selected())
         bar.append(self.btn_selected)
+        self.btn_edit = Gtk.Button(label="Edit PKGBUILD", sensitive=False)
+        self.btn_edit.connect("clicked", lambda *_: self.edit_selected())
+        bar.append(self.btn_edit)
         self.btn_all = Gtk.Button(label="Update all outdated", sensitive=False)
         self.btn_all.add_css_class("destructive-action")
         self.btn_all.connect("clicked", lambda *_: self.update_outdated())
@@ -72,6 +75,7 @@ class UpdatesPage(Gtk.Box):
         scroll = Gtk.ScrolledWindow(vexpand=True)
         self.store = Gio.ListStore()
         self.sel_model = Gtk.MultiSelection(model=self.store)
+        self.sel_model.connect("selection-changed", self._selection_changed)
         view = Gtk.ColumnView(model=self.sel_model)
         view.add_css_class("data-table")
         self._build_columns(view)
@@ -216,25 +220,32 @@ class UpdatesPage(Gtk.Box):
             names.append(row.name)
         return names
 
+    def _selection_changed(self, *_):
+        names = self._selected_names()
+        self.btn_selected.set_sensitive(bool(names))
+        self.btn_edit.set_sensitive(len(names) == 1)
+
+    def edit_selected(self):
+        if self._guard():
+            return
+        names = self._selected_names()
+        if len(names) == 1:
+            self.ctx.builder.prepare_aur_pkgbuild(names[0], self.ctx.open_pkgbuild)
+
     def update_selected(self):
+        if self._guard():
+            return
         names = [
             n for n in self._selected_names() if n
         ]
         if not names:
             self.ctx.toast("Select at least one package first")
             return
-        outdated = []
-        db = self.ctx.repo_db
-        for r in range(self.store.get_n_items()):
-            row = self.store.get_item(r)
-            if row.name in names and row.status in ("update", "notbuilt"):
-                outdated.append(row.name)
-        if not outdated:
-            self.ctx.toast("Selected packages are already up to date")
-            return
-        self._confirm_build(outdated)
+        self._confirm_build(names)
 
     def update_outdated(self):
+        if self._guard():
+            return
         outdated = []
         for i in range(self.store.get_n_items()):
             row = self.store.get_item(i)
@@ -250,8 +261,9 @@ class UpdatesPage(Gtk.Box):
         dlg = Adw.MessageDialog.new(
             self.ctx.win,
             f"Build {len(names)} package(s)?",
-            f"This will clone and rebuild:\n{shown}\n"
-            f"then sign new artifacts and refresh the database.",
+            f"This will update and rebuild:\n{shown}\n"
+            "Missing dependencies are built first. Edited PKGBUILDs are kept.\n"
+            "New artifacts are signed and the database is refreshed.",
         )
         dlg.add_response("cancel", "Cancel")
         dlg.add_response("ok", "Build")
@@ -260,6 +272,8 @@ class UpdatesPage(Gtk.Box):
         dlg.present()
 
     def _build(self, names):
+        if self._guard():
+            return
         uniq = list(dict.fromkeys(names))
         self.summary.set_text(f"Rebuilding {len(uniq)} package(s)…")
         self.btn_check.set_sensitive(False)
