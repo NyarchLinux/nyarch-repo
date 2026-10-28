@@ -48,6 +48,9 @@ class MainWindow(Adw.ApplicationWindow):
         gui_dir = os.path.dirname(os.path.abspath(__file__))
         ctx = self.ctx
         ctx.win = self
+        ctx.toast = self.toast
+        ctx.reload_repo = self.reload_repo
+        ctx.goto_package = self.goto_package
         ctx.repo_root = os.path.dirname(gui_dir)
         ctx.x86_64_dir = os.path.join(ctx.repo_root, "x86_64")
         ctx.pkgbuilds_dir = os.path.join(ctx.repo_root, "PkgBuilds")
