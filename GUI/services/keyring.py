@@ -200,7 +200,7 @@ def list_secret_keys():
 
 
 def export_secret_key(fingerprint):
-    """Export an armored PRIVATE key from the default GPG home."""
+    """Export a PRIVATE key, keeping its existing passphrase protection."""
     rc, out, err = _run(
         dict(os.environ),
         ["gpg", "--armor", "--export-secret-keys", fingerprint],
@@ -222,13 +222,22 @@ def import_private_key_file(path):
             "`gpg --export-secret-keys` first"
         )
     rc, out, err = _run(
-        dict(os.environ), ["gpg", "--import", path], timeout=600,
+        dict(os.environ),
+        ["gpg", "--status-fd", "1", "--import", path], timeout=600,
     )
     if rc != 0:
         raise RuntimeError(err.strip() or "import failed")
-    if "secret" not in (err + out):
-        raise RuntimeError("no private key found in that file")
-    return True
+    for line in out.splitlines():
+        parts = line.split()
+        if parts[:2] != ["[GNUPG:]", "IMPORT_RES"] or len(parts) < 12:
+            continue
+        try:
+            # sec_read includes both newly imported and unchanged secret keys.
+            if int(parts[11]) > 0:
+                return True
+        except ValueError:
+            continue
+    raise RuntimeError("no private key found in that file")
 
 
 def recv_keys(kf, ids, keyserver=DEFAULT_KEYSERVER):

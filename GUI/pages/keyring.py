@@ -111,7 +111,8 @@ class KeyringPage(Gtk.Box):
         self.btn_exp_priv = Gtk.Button(label="Export…")
         self.btn_exp_priv.set_tooltip_text(
             "Save an armored private key (.asc) to move your signing key "
-            "elsewhere. gpg may ask for your passphrase. Keep the file secret."
+            "elsewhere. Its existing passphrase is unchanged. "
+            "gpg may ask for it. Keep the file secret."
         )
         self.btn_exp_priv.connect(
             "clicked", lambda *_: self.export_private_dialog()
@@ -546,7 +547,6 @@ class KeyringPage(Gtk.Box):
                 uid = k["uids"][0] if k["uids"] else k["keyid"]
                 fpr = k["fpr"] or k["keyid"]
                 options.append(f"{uid} — {fpr[:16]}")
-            options[0] += "   (default signing key)"
             dlg = Adw.MessageDialog.new(
                 self.ctx.win, "Export which private key?", None
             )
@@ -616,7 +616,8 @@ class KeyringPage(Gtk.Box):
             self.ctx.win,
             "Private key saved",
             f"Saved to <b>{esc(os.path.basename(path))}</b>.\n\n"
-            "It is protected by your passphrase, but treat the file as a "
+            "The export keeps the key's existing passphrase protection "
+            "(if any); it does not set a new passphrase. Treat the file as a "
             "secret: transfer it over a secure channel, import it on the "
             "other machine, then delete it (<tt>shred -u</tt>). Never commit "
             "or share it.",
@@ -637,7 +638,8 @@ class KeyringPage(Gtk.Box):
             "This adds the private key from the chosen file to this "
             "machine's GPG keyring (<tt>~/.gnupg</tt>). Only import keys you "
             "control; the file must have been exported with "
-            "<tt>--export-secret-keys</tt> (or the GUI export button).",
+            "<tt>--export-secret-keys</tt> (or the GUI export button). "
+            "Use the key's existing passphrase; importing does not reset it.",
         )
         dlg.add_response("cancel", "Cancel")
         dlg.add_response("ok", "Choose file…")
